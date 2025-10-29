@@ -1,112 +1,118 @@
 # 🛡️ SolAgent - Governança e Proteção de Branches
 
-## 📋 O Problema Técnico
+## 🧠 Contexto Técnico — Branch Protection e Estratégia de Governança
 
-Estamos tentando proteger a branch `main` do repositório `SolAgent` usando regras de proteção de branch (branch protection rules).
+### O problema
 
-Essas regras são importantes porque queremos garantir que:
-- ninguém faça push direto para `main`
-- qualquer mudança na `main` só aconteça via pull request
-- ninguém apague a `main`
-- ninguém consiga dar `force push` e sobrescrever histórico
+Durante a configuração de proteção da branch `main`, identificamos uma limitação do GitHub para contas pessoais **com repositórios privados**.
+Mesmo que as regras de proteção (branch protection rules) sejam salvas, o GitHub exibe o aviso:
 
-Isso é **padrão de governança de produto**.
-
-### ⚠️ Limitação Descoberta
-
-O GitHub mostrou o aviso:
 > "Rules on your private repos can't be enforced until you upgrade to GitHub Team or Enterprise."
 
-**Tradução direta:**
-- Como o repositório está privado e a conta é pessoal/gratuita, o GitHub salva a regra mas **NÃO aplica de verdade**
-- Na prática, ainda dá pra dar `push origin main` direto e quebrar tudo
+Isso significa que as proteções configuradas — como impedir `force push`, bloquear `delete`, e exigir `pull request` — **não são aplicadas de fato** enquanto o repositório for privado em uma conta pessoal gratuita.
+O GitHub apenas guarda a configuração, mas **não executa as restrições**.
 
-## 🎯 Por Que Isso Importa Para a SolAgent
+### Por que isso importa
 
-A SolAgent não é mais um script pessoal. Agora é um **produto** com:
+A SolAgent já não é um projeto experimental.
+Ela tem estrutura profissional de branches:
 
-- **`main`** → versão estável e vendável (v1.2)
-- **`dev`** → linha de desenvolvimento ativo  
-- **`v2_cloud`** → roadmap SaaS
+* `main` → versão estável e pública (v1.2)
+* `dev` → linha de desenvolvimento ativo
+* `v2_cloud` → roadmap SaaS futuro
 
-A `main` precisa estar protegida porque:
-- é a versão que será mostrada para cliente e investidor
-- é a que vamos demonstrar em vídeo
-- é a que precisa rodar **SEM quebrar**
+A `main` representa o **produto** — é a versão que vai pra demonstrações, vídeos e clientes.
+Por isso, precisa estar protegida contra pushs diretos, merges sem revisão e exclusões acidentais.
 
-**Se a `main` quebrar por um push direto errado, perdemos: confiança, demo, credibilidade.**
+### A solução adotada
 
-## 🔧 Plano de Solução (2 Etapas)
+Após análise, decidimos o seguinte plano estratégico para contornar a limitação sem comprometer segurança:
 
-### Etapa A — Blindagem Técnica
+#### ✅ Etapa 1 — Tornar o repositório público
 
-Garantir que nenhum dado sensível possa vazar antes de tornar público:
+O repositório foi tornado público.
+Com isso, o GitHub passou a aplicar automaticamente todas as **branch protection rules** mesmo no plano gratuito.
 
-1. **Proteger credenciais:**
-   - ✅ `config.json` no `.gitignore`  
-   - ✅ Manter apenas `config.example.json` com campos falsos
-   - ✅ Nunca commitar chaves OpenAI
+A `main` agora está protegida por:
 
-2. **Proteger dados do usuário:**
-   - ✅ Arquivos de áudio (`.wav`, `.mp3`) excluídos
-   - ✅ Logs pessoais excluídos
-   - ✅ Cache do Whisper excluído
+* Require Pull Request before merging
+* Require 1 approval
+* Dismiss stale PR approvals when new commits are pushed
+* Require linear history
+* Do not allow force push
+* Do not allow deletion
 
-3. **Código limpo:**
-   - ✅ Sem credenciais hardcoded
-   - ✅ Leitura sempre do `config.json` local
+Essa decisão garante governança corporativa e credibilidade técnica sem custo adicional.
 
-### Etapa B — Ativar Proteção Real
+---
 
-**Opção 1: Repositório Público** (RECOMENDADA)
-- Tornar `SolAgent` **público** ativa as regras de proteção automaticamente
-- Pull request obrigatório ✅
-- Force push bloqueado ✅  
-- Main protegida ✅
-- **Estratégia:** Produto open-source, venda serviços premium
+#### ✅ Etapa 2 — Blindagem de segurança
 
-**Opção 2: Disciplina Manual** (privado)
-- Fluxo interno rígido:
-  1. Todo trabalho em `dev`
-  2. Merge controlado `dev` → `main`
-  3. **NUNCA** push direto na `main`
+Antes de tornar o código público, fizemos uma limpeza completa para garantir que **nenhum dado sensível fosse exposto**:
 
-## 📐 Política Operacional
+* `config.json` foi incluído no `.gitignore`
+* Criado `config.example.json` limpo:
 
-### Estrutura de Branches:
-- **`main`** = "PRODUTO LIBERADO" (sempre estável, sempre funcional)
-- **`dev`** = "LABORATÓRIO" (desenvolvimento ativo, testes)  
-- **`v2_cloud`** = "ROADMAP SaaS" (funcionalidades futuras)
+  ```json
+  {
+    "openai_api_key": "COLOQUE_SUA_CHAVE_AQUI",
+    "safe_mode": true,
+    "voice_enabled": true
+  }
+  ```
+* Logs, cache, áudios e pastas locais foram ignorados:
 
-### Fluxo de Trabalho:
-```bash
-# Desenvolvimento
-git checkout dev
-git pull origin dev
-# ... fazer mudanças ...
-git commit -m "feat: nova funcionalidade"
-git push origin dev
+  ```
+  /__pycache__/
+  /.venv/
+  /logs/
+  *.wav
+  *.mp3
+  *.json
+  !config.example.json
+  ```
+* Implementado script `security_check.py` para auditoria automática de chaves hardcoded antes de qualquer release.
 
-# Quando estável, merge para main
-git checkout main
-git merge dev
-git push origin main
-```
+### 🧩 Política de Branches
 
-### Regras de Ouro:
-1. **Main é sagrada** - só recebe código testado e funcional
-2. **Dev é playground** - pode quebrar, pode experimentar
-3. **V2_cloud é visão** - roadmap para o futuro SaaS
+| Branch       | Propósito                 | Regras                                                    |
+| ------------ | ------------------------- | --------------------------------------------------------- |
+| **main**     | Versão estável / Produção | Protegida. Apenas merges via PR e com revisão.            |
+| **dev**      | Desenvolvimento ativo     | Livre para commits e testes. Fonte de merges para `main`. |
+| **v2_cloud** | Roadmap SaaS futuro       | Branch experimental, não protegida.                       |
+
+---
+
+### 🧠 Processo Operacional
+
+1. Todo novo código é feito em **dev**.
+2. Quando estável, é feito **merge de dev → main** via PR.
+3. A `main` só recebe commits revisados e testados.
+4. A `v2_cloud` serve para testes e inovações não estáveis.
+
+### 📜 Conclusão
+
+Essa governança garante:
+
+* Segurança de código e chaves
+* Fluxo controlado de releases
+* Proteção da branch principal
+* Estrutura pronta para escalabilidade (SaaS)
+* Conformidade com práticas de produto corporativo
+
+A SolAgent agora segue o padrão de desenvolvimento de uma empresa real — com governança, segurança e rastreabilidade completas.
+
+---
 
 ## 🎯 TL;DR
 
 - **Problema:** GitHub não aplica proteção de branch em repos privados gratuitos
-- **Risco:** Push direto na `main` pode quebrar versão vendável
-- **Solução:** Blindagem de dados + disciplina operacional + eventual migração para público
-- **Estratégia:** `main` = produto, `dev` = laboratório, `v2_cloud` = SaaS
+- **Solução:** Repositório público + blindagem de segurança + branch protection automática
+- **Resultado:** Governança corporativa sem custo + credibilidade técnica
+- **Estratégia:** `main` = produto estável, `dev` = laboratório, `v2_cloud` = roadmap SaaS
 
 ---
 
-**Esta governança garante que a SolAgent mantenha qualidade empresarial mesmo em repositório pessoal.**
+**Esta governança garante que a SolAgent mantenha qualidade empresarial e segurança de dados.**
 
-*Criado em 29/10/2025 - SolAgent v1.2*
+*Atualizado em 29/10/2025 - SolAgent v1.2 com governança empresarial*
