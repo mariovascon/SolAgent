@@ -1,5 +1,5 @@
 {
-  "openai_api_key": "COLE_SUA_CHAVE_AQUI",
+  "openai_api_key": "COLOQUE_SUA_CHAVE_OPENAI_AQUI",
   "voice_tts": "pt-BR-masculino",
   "wake_word_enabled": false,
   "safe_mode": true,
