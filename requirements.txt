@@ -1,0 +1,8 @@
+openai
+pyautogui
+pyaudio
+whisper-timestamped
+SpeechRecognition
+pyttsx3
+python-dotenv
+psutil
